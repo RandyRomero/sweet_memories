@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-import shelve
+import shutil
 import random
 
 print('Hi there!')
@@ -13,19 +13,33 @@ def get_list_of_photos(archive_path):
     for root, subfolders, files in os.walk(archive_path):
         print(f'Checking {root}')
         for file in files:
-            print(f'Checking {file}')
+            # print(f'Checking {file}')
             if file.lower().endswith('.jpg') or file.lower().endswith('.jpeg'):
-                list_of_pictures.append(file)
+                list_of_pictures.append(os.path.join(root, file))
 
     print(f'There are {len(list_of_pictures)} pictures.')
     return list_of_pictures
 
 
-def choose_random_pictures(pictures):
+def choose_random_photos(pictures):
     random_pics = random.sample(pictures, 5)
     for pic in random_pics:
         print(pic)
     return random_pics
+
+
+def copy_photos(photos):
+    if os.path.exists('your_photos'):
+        shutil.rmtree('your_photos')
+    os.mkdir('your_photos')
+    for photo in photos:
+        new_path = os.path.join('your_photos', os.path.basename(photo))
+        if not os.path.exists(new_path):
+            print(f'Copying {os.path.basename(photo)}...')
+            shutil.copy2(photo, new_path)
+        else:
+            print(f'{os.path.basename(photo)} already exists.')
+    print('Done!')
 
 
 while True:
@@ -44,7 +58,8 @@ while True:
     option = int(input('Please type "1" or "2": '))
     if option == 1:
         photos = get_list_of_photos(path_to_archive)
-        random_photos = choose_random_pictures(photos)
+        random_photos = choose_random_photos(photos)
+        copy_photos(random_photos)
         break
     if option == 2:
         print('Ooops! This feature isn\'t available yet.')
