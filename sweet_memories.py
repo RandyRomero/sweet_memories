@@ -4,6 +4,7 @@
 import os
 import shutil
 import random
+import sys
 
 print('Hi there!')
 
@@ -42,6 +43,20 @@ def copy_photos(photos):
     print('Done!')
 
 
+def choose_and_copy(photos):
+    random_photos = choose_random_photos(photos)
+    copy_photos(random_photos)
+    repeat = input('Do you want other 5 pics from this folder? y/n: ')
+    if repeat == 'y':
+        choose_and_copy(photos)
+    if repeat == 'n':
+        print('Goobye!')
+        sys.exit()
+    else:
+        print('Wrong input! Try again.')
+        choose_and_copy(photos)
+
+
 while True:
     path_to_archive = input('Please, type in path to you photo archive:\n')
     if not os.path.exists(path_to_archive):
@@ -57,10 +72,9 @@ while True:
     print('Choose one option below:\n1. Copy 5 random photos.\n2. Copy photos that were taken in this day in the past')
     option = int(input('Please type "1" or "2": '))
     if option == 1:
-        photos = get_list_of_photos(path_to_archive)
-        random_photos = choose_random_photos(photos)
-        copy_photos(random_photos)
-        break
+        pics = get_list_of_photos(path_to_archive)
+        choose_and_copy(pics)
+
     if option == 2:
         print('Ooops! This feature isn\'t available yet.')
         continue
