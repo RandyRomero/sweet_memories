@@ -1,2 +1,4 @@
 .idea/
 your_photos/
+__pycache__/
+config.py

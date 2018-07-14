@@ -1,14 +1,16 @@
-#!python3
+#!python3.7
 # -*- coding: utf-8 -*-
 
 import os
 import shutil
 import random
-import sys
+import time
+import config  # Config need to store path to folders to work to
 
 print('Hi there!')
 
 
+# Look through the whole archives with photos and create a list of all existing files with jpg extension
 def get_list_of_photos(archive_path):
     list_of_pictures = []
     for root, subfolders, files in os.walk(archive_path):
@@ -22,19 +24,21 @@ def get_list_of_photos(archive_path):
     return list_of_pictures
 
 
+# TODO Make user to be able to choose number of photos
 def choose_random_photos(pictures):
-    random_pics = random.sample(pictures, 5)
+    random_pics = random.sample(pictures, 100)
     for pic in random_pics:
         print(pic)
     return random_pics
 
 
+# Copy chosen photo to a given folder (folder where Windows is set to get pictures for a slideshow)
 def copy_photos(photos):
-    if os.path.exists('your_photos'):
-        shutil.rmtree('your_photos')
-    os.mkdir('your_photos')
+    if os.path.exists(config.SCREENSAVER_FOLDER):
+        shutil.rmtree(config.SCREENSAVER_FOLDER)
+    os.mkdir(config.SCREENSAVER_FOLDER)
     for photo in photos:
-        new_path = os.path.join('your_photos', os.path.basename(photo))
+        new_path = os.path.join(config.SCREENSAVER_FOLDER, os.path.basename(photo))
         if not os.path.exists(new_path):
             print(f'Copying {os.path.basename(photo)}...')
             shutil.copy2(photo, new_path)
@@ -43,37 +47,21 @@ def copy_photos(photos):
     print('Done!')
 
 
-def choose_and_copy(photos):
-    random_photos = choose_random_photos(photos)
-    copy_photos(random_photos)
-    repeat = input('Do you want other 5 pics from this folder? y/n: ')
-    if repeat == 'y':
-        choose_and_copy(photos)
-    if repeat == 'n':
-        print('Goobye!')
-        sys.exit()
-    else:
-        print('Wrong input! Try again.')
-        choose_and_copy(photos)
-
-
-while True:
-    path_to_archive = input('Please, type in path to you photo archive:\n')
-    if not os.path.exists(path_to_archive):
-        print('This path doesn\'t exist. Try another one.')
-        continue
-    if not os.path.isdir(path_to_archive):
-        print('Path has to be to directory, not to a specific file. Try again.')
-        continue
-    print('Path is correct!')
-    break
-
+# This chunk of code let user to choose mode of how script will work
+# Also it is responsible for rephrashing photos after given amount of time
 while True:
     print('Choose one option below:\n1. Copy 5 random photos.\n2. Copy photos that were taken in this day in the past')
     option = int(input('Please type "1" or "2": '))
     if option == 1:
-        pics = get_list_of_photos(path_to_archive)
-        choose_and_copy(pics)
+        pics = get_list_of_photos(config.PHOTO_ARCHIVE)
+        while True:
+            random_photos = choose_random_photos(pics)
+            copy_photos(random_photos)
+            timer = 60
+            for minutes in range(timer, 0, -1):
+                print(f'{minutes} minutes left before refreshing.')
+                time.sleep(60)
+            break
 
     if option == 2:
         print('Ooops! This feature isn\'t available yet.')
