@@ -25,7 +25,7 @@ def get_list_of_photos(archive_path):
 
 
 # TODO Make user to be able to choose number of photos
-def choose_random_photos(pictures):
+def choose_random_photos(pictures, number):
     random_pics = random.sample(pictures, 100)
     for pic in random_pics:
         print(pic)
@@ -54,13 +54,15 @@ while True:
     option = int(input('Please type "1" or "2": '))
     if option == 1:
         pics = get_list_of_photos(config.PHOTO_ARCHIVE)
+        random_photos = choose_random_photos(pics, config.INITIAL_NUMBER_OF_PHOTOS)
+        copy_photos(random_photos)
         while True:
-            random_photos = choose_random_photos(pics)
-            copy_photos(random_photos)
-            timer = 60
+            timer = config.MINUTES_TO_REFRESH
             for minutes in range(timer, 0, -1):
-                print(f'{minutes} minutes left before refreshing.')
-                time.sleep(60)
+                print(f'{minutes} minutes left before adding another {config.NUMBER_OF_PHOTOS_TO_ADD} photos.')
+                time.sleep(timer * 60)
+            random_photos = choose_random_photos(pics, config.NUMBER_OF_PHOTOS_TO_ADD)
+            copy_photos(random_photos)
             break
 
     if option == 2:
