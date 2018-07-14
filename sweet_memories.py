@@ -42,21 +42,11 @@ def get_list_of_photos(archive_path):
     for root, subfolders, files in os.walk(archive_path):
         print(f'Checking {root}')
         for file in files:
-            # print(f'Checking {file}')
             if file.lower().endswith('.jpg') or file.lower().endswith('.jpeg'):
                 list_of_pictures.append(os.path.join(root, file))
 
     print(f'There are {len(list_of_pictures)} pictures.')
     return list_of_pictures
-
-
-# Choose several photos in random order
-def choose_random_photos(pictures, number):
-    random_pics = random.sample(pictures, number)
-    # for pic in random_pics:
-    #     print(pic)
-    print(f'{number} random photos have been chosen.')
-    return random_pics
 
 
 # Copy chosen photo to a given folder (folder where Windows is set to get pictures for a slideshow)
@@ -96,15 +86,13 @@ while True:
         else:
             print('Can\'t create folder for photos')
 
-        random_photos = choose_random_photos(pics, config.INITIAL_NUMBER_OF_PHOTOS)
-        copy_photos(random_photos)
+        copy_photos(random.sample(pics, config.INITIAL_NUMBER_OF_PHOTOS))
 
         while True:
             time.sleep(60)
             if total_photo_size > config.MAX_TOTAL_SIZE:
                 delete_photos()
-            random_photos = choose_random_photos(pics, config.NUMBER_OF_PHOTOS_TO_ADD)
-            copy_photos(random_photos)
+            copy_photos(random.sample(pics, config.NUMBER_OF_PHOTOS_TO_ADD))
 
     if option == 2:
         print('Ooops! This feature isn\'t available yet.')
