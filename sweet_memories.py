@@ -24,9 +24,9 @@ def get_list_of_photos(archive_path):
     return list_of_pictures
 
 
-# TODO Make user to be able to choose number of photos
+# Choose several photos in random order
 def choose_random_photos(pictures, number):
-    random_pics = random.sample(pictures, 100)
+    random_pics = random.sample(pictures, number)
     for pic in random_pics:
         print(pic)
     return random_pics
