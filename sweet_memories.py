@@ -150,10 +150,30 @@ while True:
     elif option == 2:
         pics = get_photo_of_the_day(config.PHOTO_ARCHIVE)
 
+        # Close script if it can't create a folder 5 times straight
         if not create_folder():
             exit()
 
-        copy_photos(pics)
-        break
+        # If there less than, for example, 100 photos, copy them and stop the script
+        if len(pics) < config.INITIAL_NUMBER_OF_PHOTOS:
+            copy_photos(pics)
+            print('All photos from this day in the past were copied. Bye!')
+            exit()
+
+        print(f'Now copy {len(pics[:config.INITIAL_NUMBER_OF_PHOTOS])} photos.')
+        copy_photos(pics[:config.INITIAL_NUMBER_OF_PHOTOS])
+        while True:
+            pics[:config.INITIAL_NUMBER_OF_PHOTOS] = []
+            time.sleep(60)
+            if not pics:
+                exit()
+            if total_photo_size > config.MAX_TOTAL_SIZE:
+                delete_photos()
+            if len(pics) >= 100:
+                print(f'Now copy other {len(pics[:config.INITIAL_NUMBER_OF_PHOTOS])} photos. '
+                      f'{len(pics) - config.NUMBER_OF_PHOTOS_TO_ADD} left.')
+            elif len(pics) < 100:
+                print(f'Now copy last {len(pics)} photos')
+            copy_photos(pics[:config.INITIAL_NUMBER_OF_PHOTOS])
     else:
         print('Input error. You can only type "1" or "2". Try again.')
