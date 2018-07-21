@@ -75,8 +75,8 @@ def get_photo_of_the_day(archive_path):
             if re.match(regex, file):
                 list_of_pictures.append(os.path.join(root, file))
 
-    for pic in list_of_pictures:
-        print(pic)
+    for photo in list_of_pictures:
+        print(photo)
     print(f'There are {len(list_of_pictures)} pictures.')
     print(f'There are {files_without_date_in_name} pictures were found by examining of EXIF.')
     return list_of_pictures
@@ -84,6 +84,7 @@ def get_photo_of_the_day(archive_path):
 
 # Look through the whole archives with photos and create a list of all existing files with jpg extension
 def get_list_of_photos(archive_path):
+    size_to_copy = 0
     list_of_pictures = []
     for root, subfolders, files in os.walk(archive_path):
         print(f'Checking {root}')
@@ -91,12 +92,18 @@ def get_list_of_photos(archive_path):
             if file.lower().endswith('.jpg') or file.lower().endswith('.jpeg'):
                 list_of_pictures.append(os.path.join(root, file))
 
-    print(f'There are {len(list_of_pictures)} pictures.')
-    return list_of_pictures
+    print(f'There are {len(list_of_pictures)} pictures in total.')
+    # photos_to_copy = [x for x in random.choice(list_of_pictures)]
+    while size_to_copy < config.MAX_TOTAL_SIZE:
+        random_pic = random.choice(list_of_pictures)
+        size_to_copy += os.path.getsize(random_pic)
+        yield random_pic
 
 
 # Copy chosen photo to a given folder (folder where Windows is set to get pictures for a slideshow)
 def copy_photos(photos):
+    if isinstance(photos, str):
+        photos = [photos]
     print('Adding new photos...')
     global total_photo_size
     for photo in photos:
@@ -134,18 +141,12 @@ while True:
     option = int(input('Please type "1" or "2": '))
 
     if option == 1:
-        pics = get_list_of_photos(config.PHOTO_ARCHIVE)
-
         if not create_folder():
             exit()
 
-        copy_photos(random.sample(pics, config.INITIAL_NUMBER_OF_PHOTOS))
-
-        while True:
-            time.sleep(60)
-            if total_photo_size > config.MAX_TOTAL_SIZE:
-                delete_photos()
-            copy_photos(random.sample(pics, config.NUMBER_OF_PHOTOS_TO_ADD))
+        for pic in get_list_of_photos(config.PHOTO_ARCHIVE):
+            print(pic)
+            copy_photos(pic)
 
     elif option == 2:
         pics = get_photo_of_the_day(config.PHOTO_ARCHIVE)
