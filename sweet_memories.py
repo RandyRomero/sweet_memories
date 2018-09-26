@@ -1,4 +1,4 @@
-#!python3.7
+#!python3
 # -*- coding: utf-8 -*-
 
 import os
@@ -7,10 +7,13 @@ import random
 import time
 import config  # Config need to store path to folders to work to
 import exifread
+import shelve
 import re
-from datetime import datetime
+from handle_logs import logger
+import datetime as dt
 
 print('Hi there!')
+
 
 all_copied_files = []  # Keep track of copied photos in order to delete them in order they were copied
 total_photo_size = 0  # Keep track of size of photos that were copied in order to remove some when there are to much
@@ -47,39 +50,120 @@ def delete_photos():
     return
 
 
-# Look for photos that were taken in that day in previous years2
-def get_photo_of_the_day(archive_path):
+def make_snaphot_with_dates(archive_path):
     list_of_pictures = []
     files_without_date_in_name = 0
     for root, subfolders, files in os.walk(archive_path):
         print(f'Checking {root}')
         # Get regex with any year and today's date like \d{4}-07-16
-        regex = re.compile('\d{4}-' + str(datetime.now().date())[5:])
+
+        regex = re.compile(r'\d{4}-\d{2}-\d{2}')
         for file in files:
             if not file.lower().endswith('.jpg') or file.lower().endswith('.jpeg'):
                 continue
 
             # Use regex to look for photos with specific date: first check if there is date in filename,
             # if not check the date in EXIF data within photo
-            if not re.match(r'\d{4}-\d{2}-\d{2}', file):
+            date_from_filename = re.match(regex, file)
+            if date_from_filename:
+                list_of_pictures.append([os.path.join(root, file), date_from_filename[0]])
+
+            else:
                 print(f'Checking {file}...')
-                data = get_date_from_exif(root, file)
-                print(data)
-                today = str(datetime.now().date()).replace('-', ':')[5:]
-                if re.match(r'\d{4}:' + today, data):
-                    files_without_date_in_name += 1
-                    print(f'Files without name in date: {files_without_date_in_name}')
-                    list_of_pictures.append(os.path.join(root, file))
+                date_from_exif = get_date_from_exif(root, file)
+                if date_from_exif == 'no data':
+                    print('There is no exif in', os.path.join(root, file))
                     continue
 
-            if re.match(regex, file):
-                list_of_pictures.append(os.path.join(root, file))
+                date_from_exif = date_from_exif.replace(':', '-')
+                list_of_pictures.append([os.path.join(root, file), date_from_exif])
+            continue
 
-    for photo in list_of_pictures:
-        print(photo)
     print(f'There are {len(list_of_pictures)} pictures.')
     print(f'There are {files_without_date_in_name} pictures were found by examining of EXIF.')
+
+    if not os.path.exists('snapshots'):
+        os.mkdir('snapshots')
+
+    name = input('Please enter a name for a snapshot: ')
+    name = name if name else dt.datetime.strftime(dt.datetime.now(), '%Y-%m-%d %H-%M-%S')
+    logger.info('name: ', name)
+    db = shelve.open('snapshots/sweet_dreams_db')
+
+    db[name] = list_of_pictures
+    db.close()
+    print(f'Snapshot "{name}" has been saved.')
+
     return list_of_pictures
+
+
+# Copy chosen photo to a given folder (folder where Windows is set to get pictures for a slideshow)
+def copy_photos(photos):
+    if isinstance(photos, str):
+        photos = [photos]
+    print('Adding new photos...')
+    global total_photo_size
+    for photo in photos:
+        new_path = os.path.join(config.SCREENSAVER_FOLDER, os.path.basename(photo))
+        if not os.path.exists(new_path):
+            print(f'Copying {os.path.basename(photo)}...')
+            try:
+                shutil.copy2(photo, new_path)
+                all_copied_files.append(new_path)
+                total_photo_size += os.path.getsize(photo)
+            except FileNotFoundError:
+                logger.warning(f"Can't find {photo}.")
+        else:
+            print(f'{os.path.basename(photo)} already exists.')
+
+    print(f'Done! There are {(total_photo_size / 1024**2):.0f} MB of photos ready to show.')
+
+
+def select_photos_of_the_day(list_of_photos):
+    today = dt.datetime.strftime(dt.datetime.now(), '%m-%d')
+    regex = re.compile(r'\d{4}-' + today)
+    return [x[0] for x in list_of_photos if re.match(regex, x[1])]
+
+
+def ask_path():
+    while True:
+        path = input('Please type path to your photos: ')
+        if os.path.isdir(path):
+            print('Got it')
+            return path
+        else:
+            print('Path is invalid. Try again.')
+            continue
+
+
+def get_photo_of_the_day():
+    while True:
+        cmd = input('Please, press L if you want to [l]oad a snapshot or P if you want to choose a [p]ath to '
+                    'your folder with photos: ').lower()
+        if cmd == 'l':
+            try:
+                db = shelve.open('snapshots/sweet_dreams_db')
+                print('Open database - ok')
+            except FileNotFoundError:
+                print('There are no snapshots yet.')
+                continue
+            print('There are these snapshots. Please, choose one and type its number:')
+            keys = list(db.keys())
+            if not keys:
+                print('There are no snapshots yet.')
+                continue
+            roach = dict(zip(range(1, len(keys) + 1), keys))
+            for i, k in roach.items():
+                print(f'{i}. {k}')
+            while True:
+                choice = int(input('Your choice (one number): '))
+                if choice in roach.keys():
+                    snapshot = db[roach[choice]]
+                    return select_photos_of_the_day(snapshot)
+
+        if cmd == 'p':
+            # list_of_photos_with_dates = make_snaphot_with_dates(ask_path())
+            return select_photos_of_the_day(make_snaphot_with_dates(ask_path()))
 
 
 # Look through the whole archives with photos and create a list of all existing files with jpg extension
@@ -93,30 +177,13 @@ def get_list_of_photos(archive_path):
                 list_of_pictures.append(os.path.join(root, file))
 
     print(f'There are {len(list_of_pictures)} pictures in total.')
-    # photos_to_copy = [x for x in random.choice(list_of_pictures)]
+
+    photos = []
     while size_to_copy < config.MAX_TOTAL_SIZE:
         random_pic = random.choice(list_of_pictures)
         size_to_copy += os.path.getsize(random_pic)
-        yield random_pic
-
-
-# Copy chosen photo to a given folder (folder where Windows is set to get pictures for a slideshow)
-def copy_photos(photos):
-    if isinstance(photos, str):
-        photos = [photos]
-    print('Adding new photos...')
-    global total_photo_size
-    for photo in photos:
-        new_path = os.path.join(config.SCREENSAVER_FOLDER, os.path.basename(photo))
-        if not os.path.exists(new_path):
-            print(f'Copying {os.path.basename(photo)}...')
-            shutil.copy2(photo, new_path)
-            all_copied_files.append(new_path)
-            total_photo_size += os.path.getsize(photo)
-        else:
-            print(f'{os.path.basename(photo)} already exists.')
-
-    print(f'Done! There are {(total_photo_size / 1024**2):.0f} MB of photos ready to show.')
+        photos.append(random_pic)
+    return photos
 
 
 def create_folder():
@@ -137,19 +204,23 @@ def create_folder():
 # This chunk of code let user to choose mode of how script will work
 # Also it is responsible for adding photos after given amount of time
 while True:
-    print('Choose one option below:\n1. Copy 5 random photos.\n2. Copy photos that were taken in this day in the past')
+    print('Choose one option below:\n'
+          f'1. Copy {config.INITIAL_NUMBER_OF_PHOTOS} random photos.\n'
+          '2. Copy photos that were taken in this day in the past.\n')
+
     option = int(input('Please type "1" or "2": '))
 
     if option == 1:
         if not create_folder():
             exit()
 
-        for pic in get_list_of_photos(config.PHOTO_ARCHIVE):
-            print(pic)
-            copy_photos(pic)
+        # for pic in get_list_of_photos(ask_path()):
+        #     print(pic)
+        copy_photos(get_list_of_photos(ask_path()))
+        exit()
 
     elif option == 2:
-        pics = get_photo_of_the_day(config.PHOTO_ARCHIVE)
+        pics = get_photo_of_the_day()
 
         # Close script if it can't create a folder 5 times straight
         if not create_folder():
@@ -176,5 +247,9 @@ while True:
             elif len(pics) < 100:
                 print(f'Now copy last {len(pics)} photos')
             copy_photos(pics[:config.INITIAL_NUMBER_OF_PHOTOS])
+
     else:
-        print('Input error. You can only type "1" or "2". Try again.')
+        print('Input error. You can only type "1", "2" or "3". Try again.')
+
+
+# TODO ClI interface to delete snapshots
