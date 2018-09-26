@@ -87,7 +87,7 @@ def make_snaphot_with_dates(archive_path):
 
     name = input('Please enter a name for a snapshot: ')
     name = name if name else dt.datetime.strftime(dt.datetime.now(), '%Y-%m-%d %H-%M-%S')
-    logger.info('name: ', name)
+    logger.info(f'name: {name}')
     db = shelve.open('snapshots/sweet_dreams_db')
 
     db[name] = list_of_pictures
