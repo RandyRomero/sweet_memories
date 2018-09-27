@@ -136,33 +136,56 @@ def ask_path():
             continue
 
 
+def manage_snapshots(cmd):
+    """
+     Function to make an ordered list of keys in database and let user to choose one key by its number
+
+    :param cmd: it's either 'get' list of photos or 'del' snapshot from a db
+    :return: tuple where first arg if boolean depending of was operation successful or not, second arg is either
+    error message or list with photos from db
+    """
+
+    try:
+        db = shelve.open('snapshots/sweet_dreams_db')
+        print('Open database - ok')
+    except FileNotFoundError:
+        return False, 'There is no database.'
+    print('There are these snapshots. Please, choose one and type its number:')
+    keys = list(db.keys())
+    if not keys:
+        db.close()
+        return False,'There are no snapshots yet.'
+    roach = dict(zip(range(1, len(keys) + 1), keys))
+    for i, k in roach.items():
+        print(f'{i}. {k}')
+    while True:
+        choice = int(input('Your choice (one number): '))
+        if choice in roach.keys():
+            if cmd == 'del':
+                key = roach[choice]
+                del db[roach[choice]]
+                db.close()
+                return True, f'{key} was successfully removed'
+            if cmd == 'get':
+                list_of_photos = db[roach[choice]]
+                return True, list_of_photos
+            else:
+                return False, 'Unknown command'
+
+
 def get_photo_of_the_day():
     while True:
         cmd = input('Please, press L if you want to [l]oad a snapshot or P if you want to choose a [p]ath to '
                     'your folder with photos: ').lower()
         if cmd == 'l':
-            try:
-                db = shelve.open('snapshots/sweet_dreams_db')
-                print('Open database - ok')
-            except FileNotFoundError:
-                print('There are no snapshots yet.')
-                continue
-            print('There are these snapshots. Please, choose one and type its number:')
-            keys = list(db.keys())
-            if not keys:
-                print('There are no snapshots yet.')
-                continue
-            roach = dict(zip(range(1, len(keys) + 1), keys))
-            for i, k in roach.items():
-                print(f'{i}. {k}')
-            while True:
-                choice = int(input('Your choice (one number): '))
-                if choice in roach.keys():
-                    snapshot = db[roach[choice]]
-                    return select_photos_of_the_day(snapshot)
+            response = manage_snapshots('get')
+            if response[0]:
+                return select_photos_of_the_day(response[1])
+            else:
+                print(response[1])
 
         if cmd == 'p':
-            # list_of_photos_with_dates = make_snaphot_with_dates(ask_path())
+            # list_of_photos_with_dates = make_snapshot_with_dates(ask_path())
             return select_photos_of_the_day(make_snaphot_with_dates(ask_path()))
 
 
@@ -206,9 +229,10 @@ def create_folder():
 while True:
     print('Choose one option below:\n'
           f'1. Copy {config.INITIAL_NUMBER_OF_PHOTOS} random photos.\n'
-          '2. Copy photos that were taken in this day in the past.\n')
+          '2. Copy photos that were taken in this day in the past.\n',
+          '3. Delete some snapshot.')
 
-    option = int(input('Please type "1" or "2": '))
+    option = int(input('Please type "1", "2" or "3": '))
 
     if option == 1:
         if not create_folder():
@@ -248,6 +272,11 @@ while True:
                 print(f'Now copy last {len(pics)} photos')
             copy_photos(pics[:config.INITIAL_NUMBER_OF_PHOTOS])
 
+    elif option == 3:
+        response = manage_snapshots('del')
+        if response[0]:
+            print(response[1])
+        exit()
     else:
         print('Input error. You can only type "1", "2" or "3". Try again.')
 
