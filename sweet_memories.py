@@ -12,42 +12,19 @@ import re
 from handle_logs import logger
 import datetime as dt
 
-print('Hi there!')
 
-
-all_copied_files = []  # Keep track of copied photos in order to delete them in order they were copied
-total_photo_size = 0  # Keep track of size of photos that were copied in order to remove some when there are to much
-# of them
-
-
-# Read EXIF from file to find date when photo was taken
 def get_date_from_exif(root, file):
+    """
+    Read EXIF from photo to find date when it was taken
+
+    :param root: root folder of the file which exif we want to get
+    :param file: filename of photo which exif we want to get
+    :return: string with date in format 2017-09-27 02-53-54 or 'no data' string
+    """
     with open(os.path.join(root, file), 'rb') as f:
         exif_info = exifread.process_file(f, details=False)
         return (str(exif_info.get('EXIF DateTimeOriginal', '')) or str(exif_info.get('EXIF DateTimeDigitized', '')) or
                 str(exif_info.get('Image DateTime', '')) or 'no data')
-
-
-# Delete first photos that were copied to clean up a bit
-def delete_photos():
-    print('Start cleaning folder...')
-    global total_photo_size
-    global all_copied_files
-
-    for index, photo in enumerate(all_copied_files):
-        total_photo_size -= os.path.getsize(photo)
-        print(f'Removing {photo}...')
-
-        # remove no more pictures than it is set in config file
-        if index > config.NUMBER_OF_PHOTOS_TO_DELETE - 1:
-            break
-        os.remove(photo)
-
-    print('before')
-    all_copied_files[:config.NUMBER_OF_PHOTOS_TO_DELETE] = []  # delete first N values
-    print('after')
-    print(f'Done cleaning screensaver folder. There are {(total_photo_size / 1024**2):.0f} MB of photos ready to show.')
-    return
 
 
 def make_snaphot_with_dates(archive_path):
@@ -98,12 +75,15 @@ def make_snaphot_with_dates(archive_path):
 
 
 # Copy chosen photo to a given folder (folder where Windows is set to get pictures for a slideshow)
-def copy_photos(photos):
+def copy_photos(photos, all_copied_files, total_photo_size):
     if isinstance(photos, str):
         photos = [photos]
     print('Adding new photos...')
-    global total_photo_size
     for photo in photos:
+        if total_photo_size > config.MAX_TOTAL_SIZE:
+            print('There are already 5 gigs of photos, stop copying new ones.')
+            print('Bye!')
+            exit()
         new_path = os.path.join(config.SCREENSAVER_FOLDER, os.path.basename(photo))
         if not os.path.exists(new_path):
             print(f'Copying {os.path.basename(photo)}...')
@@ -154,7 +134,7 @@ def manage_snapshots(cmd):
     keys = list(db.keys())
     if not keys:
         db.close()
-        return False,'There are no snapshots yet.'
+        return False, 'There are no snapshots yet.'
     roach = dict(zip(range(1, len(keys) + 1), keys))
     for i, k in roach.items():
         print(f'{i}. {k}')
@@ -224,61 +204,53 @@ def create_folder():
         return False
 
 
-# This chunk of code let user to choose mode of how script will work
-# Also it is responsible for adding photos after given amount of time
-while True:
-    print('Choose one option below:\n'
-          f'1. Copy {config.INITIAL_NUMBER_OF_PHOTOS} random photos.\n'
-          '2. Copy photos that were taken in this day in the past.\n',
-          '3. Delete some snapshot.')
+def main():
+    # This chunk of code let user to choose mode of how script will work
+    # Also it is responsible for adding photos after given amount of time
 
-    option = int(input('Please type "1", "2" or "3": '))
+    all_copied_files = []  # Keep track of copied photos in order to delete them in order they were copied
+    total_photo_size = 0  # Keep track of size of photos that were copied in order to remove some when there are to much
+    # of them
 
-    if option == 1:
-        if not create_folder():
-            exit()
+    print('Hi there!')
 
-        # for pic in get_list_of_photos(ask_path()):
-        #     print(pic)
-        copy_photos(get_list_of_photos(ask_path()))
-        exit()
+    while True:
+        print('Choose one option below:\n'
+              f'1. Copy {config.NUMBER_OF_PHOTOS} random photos.\n'
+              '2. Copy photos that were taken in this day in the past.\n'
+              '3. Delete some snapshot.')
 
-    elif option == 2:
-        pics = get_photo_of_the_day()
+        option = int(input('Please type "1", "2" or "3": '))
 
-        # Close script if it can't create a folder 5 times straight
-        if not create_folder():
-            exit()
-
-        # If there less than, for example, 100 photos, copy them and stop the script
-        if len(pics) < config.INITIAL_NUMBER_OF_PHOTOS:
-            copy_photos(pics)
-            print('All photos from this day in the past were copied. Bye!')
-            exit()
-
-        print(f'Now copy {len(pics[:config.INITIAL_NUMBER_OF_PHOTOS])} photos.')
-        copy_photos(pics[:config.INITIAL_NUMBER_OF_PHOTOS])
-        while True:
-            pics[:config.INITIAL_NUMBER_OF_PHOTOS] = []
-            time.sleep(60)
-            if not pics:
+        if option == 1:
+            if not create_folder():
                 exit()
-            if total_photo_size > config.MAX_TOTAL_SIZE:
-                delete_photos()
-            if len(pics) >= 100:
-                print(f'Now copy other {len(pics[:config.INITIAL_NUMBER_OF_PHOTOS])} photos. '
-                      f'{len(pics) - config.NUMBER_OF_PHOTOS_TO_ADD} left.')
-            elif len(pics) < 100:
-                print(f'Now copy last {len(pics)} photos')
-            copy_photos(pics[:config.INITIAL_NUMBER_OF_PHOTOS])
 
-    elif option == 3:
-        response = manage_snapshots('del')
-        if response[0]:
-            print(response[1])
-        exit()
-    else:
-        print('Input error. You can only type "1", "2" or "3". Try again.')
+            copy_photos(get_list_of_photos(ask_path()), all_copied_files, total_photo_size)
+            exit()
+
+        elif option == 2:
+            pics = get_photo_of_the_day()
+
+            # Close script if it can't create a folder 5 times straight
+            if not create_folder():
+                exit()
+
+            # If there less than, for example, 100 photos, copy them and stop the script
+            if len(pics) < config.NUMBER_OF_PHOTOS:
+                copy_photos(pics, all_copied_files, total_photo_size)
+                print('All photos from this day in the past were copied. Bye!')
+                exit()
+
+            copy_photos(random.choices(pics, config.NUMBER_OF_PHOTOS), all_copied_files, total_photo_size)
+
+        elif option == 3:
+            response = manage_snapshots('del')
+            if response[0]:
+                print(response[1])
+            exit()
+        else:
+            print('Input error. You can only type "1", "2" or "3". Try again.')
 
 
-# TODO ClI interface to delete snapshots
+main()
