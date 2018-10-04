@@ -5,7 +5,7 @@ import os
 import shutil
 import random
 import time
-import config  # Config need to store path to folders to work to
+import config
 import exifread
 import shelve
 import re
@@ -13,45 +13,52 @@ from handle_logs import logger
 import datetime as dt
 
 
-def get_date_from_exif(root, file):
+def get_date_from_exif(root, photo):
     """
     Read EXIF from photo to find date when it was taken
 
-    :param root: root folder of the file which exif we want to get
-    :param file: filename of photo which exif we want to get
+    :param root: root folder of the photo which exif we want to get
+    :param photo: filename of photo which exif we want to get
     :return: string with date in format 2017-09-27 02-53-54 or 'no data' string
     """
-    with open(os.path.join(root, file), 'rb') as f:
+    with open(os.path.join(root, photo), 'rb') as f:
         exif_info = exifread.process_file(f, details=False)
         return (str(exif_info.get('EXIF DateTimeOriginal', '')) or str(exif_info.get('EXIF DateTimeDigitized', '')) or
                 str(exif_info.get('Image DateTime', '')) or 'no data')
 
 
 def make_snapshot_with_dates(archive_path):
+    """
+    Function to scan chosen directory (with subdirectories), find any photo, save directory tree (where are only
+    photos and folders) with dates where each photo was taken in a db, return this list of photos with dates
+
+    :param archive_path: path to directory to scan
+    :return: list where every item is another list where 1st item is full path to photo, 2nd - date where this photo
+    was taken
+    """
+    i = 0
     list_of_pictures = []
     files_without_date_in_name = 0
     for root, subfolders, files in os.walk(archive_path):
         print(f'Checking {root}')
-        # Get regex with any year and today's date like \d{4}-07-16
 
+        # Make regex to look for photos with date like 2018-02-27
         regex = re.compile(r'\d{4}-\d{2}-\d{2}')
         for file in files:
+            i = i + 1
             if not file.lower().endswith('.jpg') or file.lower().endswith('.jpeg'):
                 continue
-
-            # Use regex to look for photos with specific date: first check if there is date in filename,
-            # if not check the date in EXIF data within photo
-            date_from_filename = re.match(regex, file)
+            date_from_filename = re.search(regex, file)
             if date_from_filename:
                 list_of_pictures.append([os.path.join(root, file), date_from_filename[0]])
-
             else:
-                print(f'Checking {file}...')
+                print(f'{i+1}. Checking {file}...')
                 date_from_exif = get_date_from_exif(root, file)
                 if date_from_exif == 'no data':
                     print('There is no exif in', os.path.join(root, file))
                     continue
 
+                files_without_date_in_name += 1
                 date_from_exif = date_from_exif.replace(':', '-')
                 list_of_pictures.append([os.path.join(root, file), date_from_exif])
             continue
