@@ -66,6 +66,7 @@ def make_snapshot_with_dates(archive_path):
     print(f'There are {len(list_of_pictures)} pictures.')
     print(f'There are {files_without_date_in_name} pictures were found by examining of EXIF.')
 
+    # Make snapshot in order not to scan disk every time
     if not os.path.exists('snapshots'):
         os.mkdir('snapshots')
 
@@ -81,8 +82,13 @@ def make_snapshot_with_dates(archive_path):
     return list_of_pictures
 
 
-# Copy chosen photo to a given folder (folder where Windows is set to get pictures for a slideshow)
 def copy_photos(photos):
+    """
+    Copy given photos to a given folder (e.g. folder where Windows is set to get pictures for a slideshow)
+
+    :param photos: list of photos with dates
+    :return: None
+    """
     total_photo_size = 0
     print('Adding new photos...')
     for i, photo in enumerate(photos):
@@ -106,12 +112,21 @@ def copy_photos(photos):
 
 
 def select_photos_of_the_day(list_of_photos):
+    """
+    Make list of photos that were taken in that day in previous years
+    :param list_of_photos: list of photos with dates [[path to photo, date when photo was taken], [...], ...]
+    :return: list of photos that were taken in that day in previous years
+    """
     today = dt.datetime.strftime(dt.datetime.now(), '%m-%d')
     regex = re.compile(r'\d{4}-' + today)
     return [x[0] for x in list_of_photos if re.match(regex, x[1])]
 
 
 def ask_path():
+    """
+    Ask user path to anything and validate it
+    :return: existing path to folder
+    """
     while True:
         path = input('Please type path to your photos: ')
         if os.path.isdir(path):
@@ -124,10 +139,10 @@ def ask_path():
 
 def manage_snapshots(cmd):
     """
-     Function to make an ordered list of keys in database and let user to choose one key by its number
+     Function to make an ordered list of keys of database and let user to choose one key by its number
 
-    :param cmd: it's either 'get' list of photos or 'del' snapshot from a db
-    :return: tuple where first arg if boolean depending of was operation successful or not, second arg is either
+    :param cmd: it's string with either 'get' list of photos or 'del' snapshot from a db
+    :return: tuple where first arg is boolean depending of was operation successful or not, second arg is either
     error message or list with photos from db
     """
 
@@ -153,33 +168,39 @@ def manage_snapshots(cmd):
                 db.close()
                 return True, f'{key} was successfully removed'
             if cmd == 'get':
-                list_of_photos = db[roach[choice]]
-                return True, list_of_photos
+                return True, db[roach[choice]]
             else:
                 return False, 'Unknown command'
 
 
 def get_list_of_photos(mode):
+    """
+    Ask user whether he wants to scan disk for photos or use one of previous scans stored in database
+    :param mode: one of two modes - choose random photos or photos from this day in the past
+    :return: list of paths to photos
+    """
     while True:
         cmd = input('Please, press L if you want to [l]oad a snapshot or P if you want to choose a [p]ath to '
                     'your folder with photos: ').lower()
         if cmd == 'l':
+            # Get paths to photos from database
             response = manage_snapshots('get')
             if response[0]:
                 if mode == 'all':
-                    photos = [x for x in response[1]]
-                    return random.choices(photos, k=config.NUMBER_OF_PHOTOS)
+                    # From all paths to photos choose given number of them randomly
+                    return random.choices([x for x in response[1]], k=config.NUMBER_OF_PHOTOS)
                 elif mode == 'of the day':
+                    # From all paths to photos choose that were taken in this day in the past
                     return select_photos_of_the_day(response[1])
             else:
-                print(response[1])
+                print(response[1])  # print error message
 
         if cmd == 'p':
             if mode == 'all':
-                # return random choices of list with photos after scanning a disk
-                random_photos = random.choices(make_snapshot_with_dates(ask_path()), k=config.NUMBER_OF_PHOTOS)
-                return random_photos
+                # scan given directory then return list of paths to photos chosen randomly
+                return random.choices(make_snapshot_with_dates(ask_path()), k=config.NUMBER_OF_PHOTOS)
             elif mode == 'of the day':
+                # scan given directory then return list of paths to photos that were taken in this day in the past
                 return select_photos_of_the_day(make_snapshot_with_dates(ask_path()))
 
 
