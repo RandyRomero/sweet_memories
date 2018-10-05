@@ -119,7 +119,8 @@ def select_photos_of_the_day(list_of_photos):
     """
     today = dt.datetime.strftime(dt.datetime.now(), '%m-%d')
     regex = re.compile(r'\d{4}-' + today)
-    return [x[0] for x in list_of_photos if re.match(regex, x[1])]
+    # return [x[0] for x in list_of_photos if re.match(regex, x[1])]
+    return [x for x in list_of_photos if re.match(regex, x[1])]
 
 
 def ask_path():
