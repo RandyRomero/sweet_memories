@@ -269,4 +269,5 @@ def main():
             print('Input error. You can only type "1", "2" or "3". Try again.')
 
 
-main()
+if __name__ == '__main__':
+    main()
